@@ -1,13 +1,12 @@
 # GS 2026/2 - CitizenTech
 
-Prazo da Sprint ativa: 04/11/2026 → 19/11/2026
-Status: Sprint ativa
+Prazo da Sprint: 04/11/2026 → 19/11/2026
+
 Tipo: Global Solution
 
 <aside>
-📡
 
-**CitizenTech**
+**📡 CitizenTech**
 
 Engenharia de Software – 2º Ano – Global Solution 2
 
@@ -22,12 +21,10 @@ Engenharia de Software – 2º Ano – Global Solution 2
 # **Global Solution -** CitizenTech
 
 > Tecnologia com o cidadão no centro da inovação.
-> 
 
 <aside>
-🚀
 
-**Entregas**
+**🚀 Entregas**
 
 1 entrega, sendo um MVP Java com banco + Vídeo pitch
 
@@ -39,13 +36,9 @@ Engenharia de Software – 2º Ano – Global Solution 2
 
 ## 📋 Regras do projeto
 
----
-
 - Conteúdo até a fase 7
 - Banco relacional → Oracle, MySQL, PostgreSQL, H2 ou outro relacional, acessado pelo Java via JDBC.
 - Um domínio só → as entidades do Java são as tabelas do banco e as telas da web
-
----
 
 **Back-end em Java com persistência**
 
@@ -55,22 +48,16 @@ Engenharia de Software – 2º Ano – Global Solution 2
 - Camadas separadas  Model, DAO (acesso a dados), service (regras) e interface, cada um no seu pacote
 - Tratamento de erros  Exceções de banco e entradas inválidas tratadas com mensagem clara, sem o sistema cair
 
----
-
 **Modelagem do banco**
 
 - Diagrama entidade-relacionamento → pelo menos 4 tabelas com PK, FK e cardinalidades, incluindo um relacionamento N:N com tabela associativa
 - Script .sql → CREATE TABLE com PK, FK, NOT NULL e ao menos um UNIQUE ou CHECK, mais INSERTs de carga inicial
-
----
 
 **Interface web**
 
 - Navegação → pelo menos 3 páginas ligadas por um menu igual em todas, com HTML semântico
 - Telas do CRUD → formulários e listagens para as entidades principais, com validação em JS e mensagens na página
 - Responsivo e bem desenhado → funciona no celular e no desktop, com bom design visual e contraste legível.
-
----
 
 **Vídeo Pitch**
 
