@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f2">
+  <meta name="description" content="Cadastre, edite e organize suas receitas no PlanEat.">
+  <title>Minhas receitas · PlanEat</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="recipes">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="PlanEat, início">
+      <span class="brand-mark" aria-hidden="true">p</span>
+      <span>plan<span class="brand-light">eat</span><small>menos desperdício, mais cuidado</small></span>
+    </a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
+    <nav class="main-nav" id="main-nav" aria-label="Navegação principal">
+      <a class="nav-link" href="index.html" data-nav="planner"><span aria-hidden="true">▦</span> Planejamento</a>
+      <a class="nav-link" href="receitas.html" data-nav="recipes"><span aria-hidden="true">♧</span> Receitas</a>
+      <a class="nav-link" href="lista.html" data-nav="shopping"><span aria-hidden="true">✓</span> Lista de compras</a>
+    </nav>
+    <div class="profile-chip"><span class="avatar">J</span><span>Minha cozinha</span></div>
+  </header>
+
+  <main class="page-shell">
+    <section class="welcome-row">
+      <div>
+        <p class="eyebrow"><span class="status-dot"></span> SEU CADERNO DE RECEITAS</p>
+        <h1>Receitas que fazem <em>bem.</em></h1>
+        <p class="page-intro">Guarde suas favoritas e use os ingredientes com intenção.</p>
+      </div>
+      <a class="button button-primary" href="#recipe-form">＋ Nova receita</a>
+    </section>
+    <div class="recipe-layout">
+      <section class="panel recipe-form-panel" aria-labelledby="form-heading">
+        <div class="section-heading"><div><p class="eyebrow">CADASTRO</p><h2 id="form-heading">Nova receita</h2></div></div>
+        <form id="recipe-form" novalidate>
+          <input type="hidden" name="id" id="recipe-id">
+          <label for="recipe-name">Nome da receita</label>
+          <input id="recipe-name" name="name" type="text" maxlength="70" placeholder="Ex.: Bowl de legumes" required>
+          <div class="form-row">
+            <div><label for="recipe-category">Categoria</label><select id="recipe-category" name="category"><option>Almoço</option><option>Jantar</option><option>Café da manhã</option><option>Lanche</option><option>Sobremesa</option></select></div>
+            <div><label for="recipe-servings">Porções base</label><input id="recipe-servings" name="servings" type="number" min="1" max="20" value="2" required></div>
+          </div>
+          <label for="recipe-ingredients">Ingredientes</label>
+          <textarea id="recipe-ingredients" name="ingredients" rows="6" placeholder="Um ingrediente por linha, neste formato:&#10;grão-de-bico; 200; g&#10;tomate; 2; unidade&#10;azeite; 1; colher" required></textarea>
+          <span class="field-hint">Use o formato: ingrediente; quantidade; unidade</span>
+          <p class="form-message" id="recipe-message" role="status" aria-live="polite"></p>
+          <div class="form-actions"><button class="button button-primary" id="recipe-submit" type="submit">Salvar receita</button><button class="button button-quiet" id="recipe-cancel" type="button" hidden>Cancelar edição</button></div>
+        </form>
+      </section>
+      <section class="recipe-list-section" aria-labelledby="recipes-heading">
+        <div class="section-heading"><div><p class="eyebrow">SEU REPERTÓRIO</p><h2 id="recipes-heading">Todas as receitas <span class="count-badge" id="recipe-total">0</span></h2></div></div>
+        <div class="recipe-list" id="recipe-list"></div>
+        <p class="empty-state" id="recipes-empty" hidden><span aria-hidden="true">♧</span><strong>Seu caderno está esperando.</strong> Cadastre a primeira receita para começar.</p>
+      </section>
+    </div>
+    <section class="impact-banner"><span class="impact-icon" aria-hidden="true">✳</span><p><strong>Receita boa é receita aproveitada.</strong> Reutilize ingredientes em mais de um prato e deixe o planejamento trabalhar por você.</p><span class="ods-tag">MENOS DESPERDÍCIO</span></section>
+  </main>
+  <footer class="site-footer"><span>PlanEat · Cuidar da comida também é cuidar de você.</span><span>Um hábito de cada vez <span aria-hidden="true">♡</span></span></footer>
+</body>
+</html>

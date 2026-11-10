@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f2">
+  <meta name="description" content="Sua lista inteligente de compras, organizada a partir do cardápio semanal.">
+  <title>Lista de compras · PlanEat</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="shopping">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="PlanEat, início">
+      <span class="brand-mark" aria-hidden="true">p</span>
+      <span>plan<span class="brand-light">eat</span><small>menos desperdício, mais cuidado</small></span>
+    </a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
+    <nav class="main-nav" id="main-nav" aria-label="Navegação principal">
+      <a class="nav-link" href="index.html" data-nav="planner"><span aria-hidden="true">▦</span> Planejamento</a>
+      <a class="nav-link" href="receitas.html" data-nav="recipes"><span aria-hidden="true">♧</span> Receitas</a>
+      <a class="nav-link" href="lista.html" data-nav="shopping"><span aria-hidden="true">✓</span> Lista de compras</a>
+    </nav>
+    <div class="profile-chip"><span class="avatar">J</span><span>Minha cozinha</span></div>
+  </header>
+
+  <main class="page-shell">
+    <section class="welcome-row">
+      <div>
+        <p class="eyebrow"><span class="status-dot"></span> PRONTA PARA LEVAR</p>
+        <h1>Compre o que precisa. <em>Só.</em></h1>
+        <p class="page-intro">Ingredientes das suas refeições, reunidos em uma lista inteligente.</p>
+      </div>
+      <a class="button button-secondary" href="index.html">← Voltar ao planejamento</a>
+    </section>
+    <section class="shopping-summary" aria-label="Resumo da lista">
+      <div class="summary-copy"><span class="summary-icon" aria-hidden="true">✓</span><div><p class="eyebrow">SUA LISTA DA SEMANA</p><h2 id="shopping-title">Compras planejadas</h2><p id="shopping-subtitle" class="muted">Lista calculada a partir do seu cardápio.</p></div></div>
+      <div class="shopping-progress"><strong id="checked-count">0/0</strong><span>itens no carrinho</span><div class="progress-track"><span id="progress-bar"></span></div></div>
+    </section>
+    <div class="shopping-layout">
+      <section class="panel shopping-panel" aria-labelledby="shopping-heading">
+        <div class="section-heading"><div><p class="eyebrow">INGREDIENTES CONSOLIDADOS</p><h2 id="shopping-heading">Sua lista de compras</h2></div><button class="button button-quiet button-small" id="clear-checked" type="button">Desmarcar todos</button></div>
+        <div id="shopping-list" class="shopping-list"></div>
+        <div id="shopping-empty" class="empty-state" hidden><span aria-hidden="true">▦</span><strong>Sem ingredientes por enquanto.</strong> Adicione refeições ao planejamento para gerar sua lista.<a class="text-link" href="index.html">Planejar minha semana →</a></div>
+        <p class="form-message" id="shopping-message" role="status" aria-live="polite"></p>
+      </section>
+      <aside class="panel shopping-aside">
+        <div class="aside-illustration" aria-hidden="true">✳</div>
+        <p class="eyebrow">ESCOLHAS COM PROPÓSITO</p>
+        <h2>Uma lista, menos desperdício.</h2>
+        <p class="muted">Ingredientes repetidos nas receitas são somados para você levar a quantidade certa para casa.</p>
+        <div class="shopping-stat"><strong id="shopping-meals">0</strong><span>refeições no planejamento</span></div>
+        <a class="button button-primary button-full" href="receitas.html">Organizar receitas <span aria-hidden="true">→</span></a>
+      </aside>
+    </div>
+    <section class="impact-banner"><span class="impact-icon" aria-hidden="true">✳</span><p><strong>Comprar com planejamento é um ato de cuidado.</strong> Com você, com seu bolso e com o futuro da nossa cidade.</p><span class="ods-tag">ODS 2 · ODS 11</span></section>
+  </main>
+  <footer class="site-footer"><span>PlanEat · Cuidar da comida também é cuidar de você.</span><span>Um hábito de cada vez <span aria-hidden="true">♡</span></span></footer>
+</body>
+</html>
