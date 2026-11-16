@@ -76,21 +76,40 @@ planeat/
 * Implemente os comandos DDL e DML em [`database/script.sql`](/database/script.sql).
 
 ### 2. Back-end Java
-* Configure as credenciais no arquivo `backend/src/main/java/br/com/fiap/planeat/factory/ConnectionFactory.java`;
-* Implemente as operações SQL nos DAOs em `backend/src/main/java/br/com/fiap/planeat/dao/`;
-* Implemente as validações e a lógica de consolidação nos Services em `backend/src/main/java/br/com/fiap/planeat/service/`;
-* Para compilar:
+* Configure `DB_URL`, `DB_USER` e `DB_PASSWORD` (ou `DB_PASS`) no ambiente;
+* Configure `CORS_ALLOWED_ORIGINS` como uma lista separada por vírgulas. O padrão permite apenas `http://localhost:5173` e `http://127.0.0.1:5173`;
+* A sessão usa token aleatório opaco em cookie `HttpOnly`, `SameSite=Lax`, com validade de 8 horas e revogação no banco. Em produção, mantenha `COOKIE_SECURE=true` e sirva a aplicação por HTTPS; em HTTP local, configure `COOKIE_SECURE=false`;
+* Para um banco existente, aplique uma vez [`database/migrations/001_email_case_insensitive.sql`](./database/migrations/001_email_case_insensitive.sql) e [`database/migrations/002_auth_sessions.sql`](./database/migrations/002_auth_sessions.sql). Resolva previamente eventuais e-mails duplicados ignorando maiúsculas/minúsculas;
+* Senhas em texto puro de contas antigas são atualizadas para PBKDF2 no primeiro login bem-sucedido. Cadastros novos usam PBKDF2-HMAC-SHA256 com salt individual;
+* O script [`database/script.sql`](./database/script.sql) recria as tabelas: use-o somente em uma instalação nova, nunca para atualizar uma base existente. Ele carrega apenas o catálogo global; receitas e planejamentos são dados privados criados após cadastro;
+* Para compilar e testar:
   ```bash
   cd backend
-  mvn clean compile
+  mvn clean test
+  ```
+* Para iniciar o servidor (após configurar o banco e aplicar o schema/migrações):
+  ```powershell
+  $env:COOKIE_SECURE = "false"
+  mvn exec:java
   ```
 
 ### 3. Front-end React
-* Desenvolva os componentes e formulários nas páginas em `frontend/src/pages/`;
-* Integre com a API através das funções em `frontend/src/services/api.js`;
+* Configure `VITE_API_BASE_URL` somente se a API não estiver disponível pelo proxy `/api` do Vite;
 * Para rodar o ambiente de desenvolvimento:
   ```bash
   cd frontend
   npm install
   npm run dev
   ```
+* Em hospedagens estáticas, configure fallback/rewrite das rotas da SPA (`/login`, `/cadastro`, `/dashboard`, `/receitas` e `/planejamento`) para `index.html`.
+
+### Autenticação
+
+* `POST /api/auth/cadastro` — cria uma conta; senha mínima de 8 caracteres;
+* `POST /api/auth/login` — valida as credenciais e define o cookie HttpOnly;
+* `GET /api/auth/sessao` — valida a sessão no servidor e retorna o usuário autenticado;
+* `POST /api/auth/logout` — encerra a sessão no navegador.
+
+Todos os endpoints de receitas, planejamentos, listas, ingredientes e categorias exigem uma sessão válida. O proprietário dos dados é obtido exclusivamente da sessão validada no Java; IDs de usuário enviados pelo cliente são ignorados. Contas antigas com hash incompatível precisam redefinir a senha antes do primeiro acesso.
+
+As requisições que alteram dados também exigem o cabeçalho `X-Requested-With: XMLHttpRequest`; a origem do navegador deve estar em `CORS_ALLOWED_ORIGINS`.

@@ -1,13 +1,17 @@
-import { demoRequest } from './demoApi.js';
-
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const API_BASE_URL = (configuredBaseUrl || '/api').replace(/\/+$/, '');
-export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
 
 export async function fetchJson(endpoint, options = {}) {
-  if (isDemoMode) return demoRequest(endpoint, options);
-
   const headers = new Headers(options.headers || {});
+  if (!headers.has('X-Requested-With')) headers.set('X-Requested-With', 'XMLHttpRequest');
   if (options.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -17,6 +21,7 @@ export async function fetchJson(endpoint, options = {}) {
     response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
+      credentials: 'include',
     });
   } catch (error) {
     throw new Error(`Não foi possível conectar à API. Verifique se o back-end está ativo. (${error.message})`);
@@ -35,7 +40,11 @@ export async function fetchJson(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.erro || data?.mensagem || `Falha na requisição (${response.status}).`);
+    const message = data?.erro || data?.mensagem || `Falha na requisição (${response.status}).`;
+    if ((response.status === 401 || response.status === 403) && !endpoint.startsWith('/auth/')) {
+      window.dispatchEvent(new CustomEvent('planeat:session-expired'));
+    }
+    throw new ApiError(message, response.status);
   }
   return data;
 }

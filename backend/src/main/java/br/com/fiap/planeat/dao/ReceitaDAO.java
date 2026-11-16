@@ -44,6 +44,9 @@ public class ReceitaDAO {
             "LEFT JOIN T_PE_USUARIO u ON r.ID_USUARIO = u.ID_USUARIO " +
             "WHERE r.ID_RECEITA = ?";
 
+    private static final String SQL_SELECT_RECEITA_BY_ID_OWNER =
+            SQL_SELECT_RECEITA_BY_ID + " AND r.ID_USUARIO = ?";
+
     private static final String SQL_SELECT_ITEMS_BY_RECEITA =
             "SELECT ri.ID_RECEITA, ri.VL_QUANTIDADE, ri.DS_UNIDADE_MEDIDA, " +
             "       i.ID_INGREDIENTE, i.NM_INGREDIENTE, i.DS_UNIDADE_PADRAO, " +
@@ -62,6 +65,9 @@ public class ReceitaDAO {
             "LEFT JOIN T_PE_USUARIO u ON r.ID_USUARIO = u.ID_USUARIO " +
             "ORDER BY r.NM_RECEITA ASC";
 
+    private static final String SQL_SELECT_USER_RECEITAS =
+            SQL_SELECT_ALL_RECEITAS.replace("ORDER BY", "WHERE r.ID_USUARIO = ? ORDER BY");
+
     private static final String SQL_SELECT_BY_TIPO_REFEICAO =
             "SELECT r.ID_RECEITA, r.ID_USUARIO, r.NM_RECEITA, r.DS_MODO_PREPARO, r.NR_PORCOES, " +
             "       r.NR_TEMPO_MINUTOS, r.DS_TIPO_REFEICAO, r.DT_CRIACAO, " +
@@ -71,17 +77,23 @@ public class ReceitaDAO {
             "WHERE LOWER(r.DS_TIPO_REFEICAO) = LOWER(?) " +
             "ORDER BY r.NM_RECEITA ASC";
 
+    private static final String SQL_SELECT_USER_BY_TIPO_REFEICAO =
+            SQL_SELECT_BY_TIPO_REFEICAO.replace("ORDER BY", "AND r.ID_USUARIO = ? ORDER BY");
+
     private static final String SQL_UPDATE_RECEITA =
-            "UPDATE T_PE_RECEITA SET ID_USUARIO = ?, NM_RECEITA = ?, DS_MODO_PREPARO = ?, " +
+            "UPDATE T_PE_RECEITA SET NM_RECEITA = ?, DS_MODO_PREPARO = ?, " +
             "       NR_PORCOES = ?, NR_TEMPO_MINUTOS = ?, DS_TIPO_REFEICAO = ? " +
-            "WHERE ID_RECEITA = ?";
+            "WHERE ID_RECEITA = ? AND ID_USUARIO = ?";
 
     private static final String SQL_DELETE_ITEMS =
             "DELETE FROM T_PE_RECEITA_INGREDIENTE WHERE ID_RECEITA = ?";
 
-    private static final String SQL_DELETE_RECEITA =
-            "DELETE FROM T_PE_RECEITA WHERE ID_RECEITA = ?";
+    private static final String SQL_DELETE_RECEITA_BY_OWNER =
+            "DELETE FROM T_PE_RECEITA WHERE ID_RECEITA = ? AND ID_USUARIO = ?";
 
+    private static final String SQL_DELETE_ITEMS_BY_OWNER =
+            "DELETE FROM T_PE_RECEITA_INGREDIENTE WHERE ID_RECEITA IN " +
+            "(SELECT ID_RECEITA FROM T_PE_RECEITA WHERE ID_RECEITA = ? AND ID_USUARIO = ?)";
     /**
      * Insere uma receita e todos os seus ingredientes associados em transação segura (ACID).
      *
@@ -107,7 +119,10 @@ public class ReceitaDAO {
             }
 
             Long usuarioId = receita.getUsuarioId() != null ? receita.getUsuarioId() :
-                    (receita.getUsuario() != null ? receita.getUsuario().getId() : 1L);
+                    (receita.getUsuario() != null ? receita.getUsuario().getId() : null);
+            if (usuarioId == null) {
+                throw new DatabasePersistenceException("Receita deve estar associada a um usuário.");
+            }
 
             stmtReceita.setLong(1, usuarioId);
             stmtReceita.setString(2, receita.getNome());
@@ -175,6 +190,10 @@ public class ReceitaDAO {
      * @return Optional contendo a receita completa.
      */
     public Optional<Receita> buscarPorId(Long id) {
+        return buscarPorId(id, null);
+    }
+
+    public Optional<Receita> buscarPorId(Long id, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmtReceita = null;
         PreparedStatement stmtItens = null;
@@ -183,8 +202,9 @@ public class ReceitaDAO {
 
         try {
             conn = ConnectionFactory.getConnection();
-            stmtReceita = conn.prepareStatement(SQL_SELECT_RECEITA_BY_ID);
+            stmtReceita = conn.prepareStatement(usuarioId == null ? SQL_SELECT_RECEITA_BY_ID : SQL_SELECT_RECEITA_BY_ID_OWNER);
             stmtReceita.setLong(1, id);
+            if (usuarioId != null) stmtReceita.setLong(2, usuarioId);
             rsReceita = stmtReceita.executeQuery();
 
             if (!rsReceita.next()) {
@@ -217,6 +237,14 @@ public class ReceitaDAO {
      * @return Lista de receitas.
      */
     public List<Receita> listarTodos() {
+        return listarReceitas(null, null);
+    }
+
+    public List<Receita> listarPorUsuario(Long usuarioId) {
+        return listarReceitas(usuarioId, null);
+    }
+
+    private List<Receita> listarReceitas(Long usuarioId, String tipoRefeicao) {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -224,7 +252,17 @@ public class ReceitaDAO {
 
         try {
             conn = ConnectionFactory.getConnection();
-            stmt = conn.prepareStatement(SQL_SELECT_ALL_RECEITAS);
+            boolean porTipo = tipoRefeicao != null;
+            String sql = porTipo
+                    ? (usuarioId == null ? SQL_SELECT_BY_TIPO_REFEICAO : SQL_SELECT_USER_BY_TIPO_REFEICAO)
+                    : (usuarioId == null ? SQL_SELECT_ALL_RECEITAS : SQL_SELECT_USER_RECEITAS);
+            stmt = conn.prepareStatement(sql);
+            if (porTipo) {
+                stmt.setString(1, tipoRefeicao);
+                if (usuarioId != null) stmt.setLong(2, usuarioId);
+            } else if (usuarioId != null) {
+                stmt.setLong(1, usuarioId);
+            }
             rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -251,31 +289,11 @@ public class ReceitaDAO {
      * @return Lista de receitas filtradas.
      */
     public List<Receita> listarPorTipoRefeicao(String tipoRefeicao) {
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        List<Receita> receitas = new ArrayList<>();
+        return listarReceitas(null, tipoRefeicao);
+    }
 
-        try {
-            conn = ConnectionFactory.getConnection();
-            stmt = conn.prepareStatement(SQL_SELECT_BY_TIPO_REFEICAO);
-            stmt.setString(1, tipoRefeicao);
-            rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                receitas.add(mapearReceita(rs));
-            }
-
-            for (Receita r : receitas) {
-                carregarIngredientes(conn, r);
-            }
-
-            return receitas;
-        } catch (SQLException e) {
-            throw new DatabasePersistenceException("Erro ao filtrar receitas por tipo de refeição: " + e.getMessage(), e);
-        } finally {
-            ConnectionFactory.fecharRecursos(rs, stmt, conn);
-        }
+    public List<Receita> listarPorTipoRefeicao(Long usuarioId, String tipoRefeicao) {
+        return listarReceitas(usuarioId, tipoRefeicao);
     }
 
     /**
@@ -283,7 +301,7 @@ public class ReceitaDAO {
      *
      * @param receita Receita com novos dados e lista de ingredientes.
      */
-    public void atualizar(Receita receita) {
+    public void atualizar(Receita receita, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmtReceita = null;
         PreparedStatement stmtDeleteItems = null;
@@ -296,16 +314,13 @@ public class ReceitaDAO {
             conn.setAutoCommit(false);
 
             stmtReceita = conn.prepareStatement(SQL_UPDATE_RECEITA);
-            Long usuarioId = receita.getUsuarioId() != null ? receita.getUsuarioId() :
-                    (receita.getUsuario() != null ? receita.getUsuario().getId() : 1L);
-
-            stmtReceita.setLong(1, usuarioId);
-            stmtReceita.setString(2, receita.getNome());
-            stmtReceita.setString(3, receita.getModoPreparo());
-            stmtReceita.setInt(4, receita.getPorcoes());
-            stmtReceita.setInt(5, receita.getTempoPreparoMinutos());
-            stmtReceita.setString(6, receita.getTipoRefeicao());
-            stmtReceita.setLong(7, receita.getId());
+            stmtReceita.setString(1, receita.getNome());
+            stmtReceita.setString(2, receita.getModoPreparo());
+            stmtReceita.setInt(3, receita.getPorcoes());
+            stmtReceita.setInt(4, receita.getTempoPreparoMinutos());
+            stmtReceita.setString(5, receita.getTipoRefeicao());
+            stmtReceita.setLong(6, receita.getId());
+            stmtReceita.setLong(7, usuarioId);
 
             int linhasAfetadas = stmtReceita.executeUpdate();
             if (linhasAfetadas == 0) {
@@ -359,7 +374,7 @@ public class ReceitaDAO {
      *
      * @param id Identificador da receita a excluir.
      */
-    public void excluir(Long id) {
+    public void excluir(Long id, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmtDeleteItems = null;
         PreparedStatement stmtDeleteReceita = null;
@@ -370,13 +385,17 @@ public class ReceitaDAO {
             autoCommitOriginal = conn.getAutoCommit();
             conn.setAutoCommit(false);
 
-            stmtDeleteItems = conn.prepareStatement(SQL_DELETE_ITEMS);
+            stmtDeleteItems = conn.prepareStatement(SQL_DELETE_ITEMS_BY_OWNER);
             stmtDeleteItems.setLong(1, id);
+            stmtDeleteItems.setLong(2, usuarioId);
             stmtDeleteItems.executeUpdate();
 
-            stmtDeleteReceita = conn.prepareStatement(SQL_DELETE_RECEITA);
+            stmtDeleteReceita = conn.prepareStatement(SQL_DELETE_RECEITA_BY_OWNER);
             stmtDeleteReceita.setLong(1, id);
-            stmtDeleteReceita.executeUpdate();
+            stmtDeleteReceita.setLong(2, usuarioId);
+            if (stmtDeleteReceita.executeUpdate() == 0) {
+                throw new DatabasePersistenceException("Receita não encontrada para o usuário autenticado.");
+            }
 
             conn.commit();
         } catch (SQLException e) {

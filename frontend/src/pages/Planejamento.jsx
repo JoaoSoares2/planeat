@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../components/Toast.jsx';
 import {
   atualizarStatusItem,
+  atualizarPlanejamento,
   buscarListaCompras,
   buscarPlanejamento,
   criarPlanejamento,
@@ -176,14 +177,15 @@ export default function Planejamento() {
         return { receitaId, nomeReceita: recipe?.nome || '', diaSemana: day, tipoRefeicao: meal };
       }));
     const payload = {
-      usuarioId: 1,
       titulo: planTitle.trim(),
       dataInicio: startDate,
       dataFim: endDate,
       status: 'ATIVO',
       refeicoes,
     };
-    const created = await criarPlanejamento(payload);
+    const created = planId
+      ? await atualizarPlanejamento(planId, payload)
+      : await criarPlanejamento(payload);
     if (created.id == null) throw new Error('O planejamento foi criado, mas a API não retornou seu identificador.');
     const savedId = String(created.id);
     setPlanId(savedId);
@@ -377,10 +379,10 @@ export default function Planejamento() {
             )}
             <div className="plan-actions">
               <span className="plan-hint">
-                {dirty && planId ? 'A API não possui rota de edição: salvar suas mudanças cria uma nova versão do planejamento.' : `${selectedMeals} ${selectedMeals === 1 ? 'refeição escolhida' : 'refeições escolhidas'}`}
+                {dirty && planId ? 'As alterações serão salvas no planejamento selecionado.' : `${selectedMeals} ${selectedMeals === 1 ? 'refeição escolhida' : 'refeições escolhidas'}`}
               </span>
               <button className="button button-outline" type="button" onClick={handleSave} disabled={saving || generating || !recipes.length}>
-                {saving ? 'Salvando…' : planId && !dirty ? '✓ Planejamento salvo' : 'Salvar planejamento'}
+                {saving ? 'Salvando…' : planId && !dirty ? '✓ Planejamento salvo' : planId ? 'Salvar alterações' : 'Salvar planejamento'}
               </button>
               <button className="button button-primary button-generate" type="button" onClick={handleGenerateList} disabled={generating || saving || !recipes.length}>
                 <span aria-hidden="true">⚡</span> {generating ? 'Consolidando no servidor…' : 'Gerar Lista de Compras Inteligente'}

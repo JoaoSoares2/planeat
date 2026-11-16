@@ -5,6 +5,7 @@ import br.com.fiap.planeat.exception.EntidadeNaoEncontradaException;
 import br.com.fiap.planeat.exception.RegraNegocioException;
 import br.com.fiap.planeat.model.ItemListaCompras;
 import br.com.fiap.planeat.service.ListaComprasService;
+import br.com.fiap.planeat.security.AuthenticatedHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -35,6 +36,7 @@ public class ListaComprasController implements HttpHandler {
 
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
+        Long usuarioId = AuthenticatedHandler.usuarioAutenticado(exchange).getId();
 
         try {
             Long id = HttpHelper.extrairIdDoPath(path);
@@ -51,12 +53,12 @@ public class ListaComprasController implements HttpHandler {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> map = HttpHelper.getGson().fromJson(corpo, Map.class);
                     boolean comprado = Boolean.TRUE.equals(map.get("comprado"));
-                    listaComprasService.atualizarStatusComprado(id, comprado);
+                    listaComprasService.atualizarStatusComprado(id, comprado, usuarioId);
                     itemAtualizado = new ItemListaCompras();
                     itemAtualizado.setId(id);
                     itemAtualizado.setComprado(comprado);
                 } else {
-                    itemAtualizado = listaComprasService.alternarStatus(id);
+                    itemAtualizado = listaComprasService.alternarStatus(id, usuarioId);
                 }
 
                 ItemListaComprasDTO dto = new ItemListaComprasDTO();
@@ -72,7 +74,7 @@ public class ListaComprasController implements HttpHandler {
         } catch (RegraNegocioException e) {
             HttpHelper.enviarErro(exchange, 400, e.getMessage());
         } catch (Exception e) {
-            HttpHelper.enviarErro(exchange, 500, "Erro interno no servidor: " + e.getMessage());
+            HttpHelper.enviarErro(exchange, 500, "Erro interno ao atualizar a lista de compras.");
         }
     }
 }

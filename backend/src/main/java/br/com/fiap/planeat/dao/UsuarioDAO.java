@@ -30,6 +30,8 @@ public class UsuarioDAO {
             "SELECT ID_USUARIO, NM_USUARIO, DS_EMAIL, DS_SENHA, DT_CADASTRO FROM T_PE_USUARIO ORDER BY NM_USUARIO ASC";
     private static final String SQL_UPDATE =
             "UPDATE T_PE_USUARIO SET NM_USUARIO = ?, DS_EMAIL = ?, DS_SENHA = ? WHERE ID_USUARIO = ?";
+    private static final String SQL_UPDATE_PASSWORD =
+            "UPDATE T_PE_USUARIO SET DS_SENHA = ? WHERE ID_USUARIO = ?";
     private static final String SQL_DELETE =
             "DELETE FROM T_PE_USUARIO WHERE ID_USUARIO = ?";
 
@@ -183,6 +185,19 @@ public class UsuarioDAO {
             throw new DatabasePersistenceException("Erro ao atualizar dados do usuário: " + e.getMessage(), e);
         } finally {
             ConnectionFactory.fecharRecursos(stmt, conn);
+        }
+    }
+
+    public void atualizarSenha(Long usuarioId, String senhaHash) {
+        try (Connection conn = ConnectionFactory.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(SQL_UPDATE_PASSWORD)) {
+            stmt.setString(1, senhaHash);
+            stmt.setLong(2, usuarioId);
+            if (stmt.executeUpdate() == 0) {
+                throw new DatabasePersistenceException("Usuário não encontrado para atualização da senha.");
+            }
+        } catch (SQLException e) {
+            throw new DatabasePersistenceException("Erro ao atualizar senha do usuário.", e);
         }
     }
 

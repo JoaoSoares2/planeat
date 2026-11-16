@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listarReceitas } from '../services/receitaService.js';
 import { buscarRelatorioDesperdicio, listarPlanejamentos } from '../services/planoService.js';
-import { isDemoMode } from '../services/api.js';
 
 const quickLinks = [
   { icon: '+', title: 'Cadastrar receita', description: 'Guarde seus pratos favoritos e ingredientes.', to: '/serviços.html', action: 'Ir para receitas', tone: 'mint' },
@@ -12,7 +11,7 @@ const quickLinks = [
 ];
 
 export default function Dashboard() {
-  const metricSource = isDemoMode ? 'Dados de demonstração' : 'Dados carregados da sua conta';
+  const metricSource = 'Dados da sua conta';
   const [recipes, setRecipes] = useState([]);
   const [plans, setPlans] = useState([]);
   const [impactReport, setImpactReport] = useState(null);
@@ -122,7 +121,7 @@ export default function Dashboard() {
             <div className="impact-icon icon-lilac">✳</div>
             <div className="impact-value">{loading ? '—' : impactReport?.totalItensReaproveitados ?? '—'}{impactReport && <small> itens</small>}</div>
             <h3>Aproveitados em mais de uma refeição</h3>
-            <p>{impactReport ? `${impactReport.taxaAproveitamentoPercentual}% de aproveitamento ${isDemoMode ? 'simulado localmente' : 'calculado pelo back-end'}` : 'Gere um planejamento para consultar o relatório de aproveitamento.'}</p>
+            <p>{impactReport ? `${impactReport.taxaAproveitamentoPercentual}% de aproveitamento calculado pelo back-end` : 'Gere um planejamento para consultar o relatório de aproveitamento.'}</p>
           </article>
         </div>
       </section>

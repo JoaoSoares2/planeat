@@ -11,6 +11,7 @@ import br.com.fiap.planeat.model.PlanejamentoSemanal;
 import br.com.fiap.planeat.model.Receita;
 import br.com.fiap.planeat.service.ListaComprasService;
 import br.com.fiap.planeat.service.PlanejamentoService;
+import br.com.fiap.planeat.security.AuthenticatedHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -48,14 +49,17 @@ public class PlanejamentoController implements HttpHandler {
 
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
+        Long usuarioId = AuthenticatedHandler.usuarioAutenticado(exchange).getId();
 
         try {
             if ("GET".equalsIgnoreCase(method)) {
-                tratarGet(exchange, path);
+                tratarGet(exchange, path, usuarioId);
             } else if ("POST".equalsIgnoreCase(method)) {
-                tratarPost(exchange);
+                tratarPost(exchange, usuarioId);
+            } else if ("PUT".equalsIgnoreCase(method)) {
+                tratarPut(exchange, path, usuarioId);
             } else if ("DELETE".equalsIgnoreCase(method)) {
-                tratarDelete(exchange, path);
+                tratarDelete(exchange, path, usuarioId);
             } else {
                 HttpHelper.enviarErro(exchange, 405, "Método HTTP não permitido: " + method);
             }
@@ -64,11 +68,11 @@ public class PlanejamentoController implements HttpHandler {
         } catch (RegraNegocioException e) {
             HttpHelper.enviarErro(exchange, 400, e.getMessage());
         } catch (Exception e) {
-            HttpHelper.enviarErro(exchange, 500, "Erro interno no servidor: " + e.getMessage());
+            HttpHelper.enviarErro(exchange, 500, "Erro interno ao processar o planejamento.");
         }
     }
 
-    private void tratarGet(HttpExchange exchange, String path) throws IOException {
+    private void tratarGet(HttpExchange exchange, String path, Long usuarioId) throws IOException {
         // Ex: /api/planejamentos/{id}/lista-compras
         if (path.contains("/lista-compras")) {
             Long planoId = extrairIdPlanejamento(path, "/lista-compras");
@@ -77,8 +81,8 @@ public class PlanejamentoController implements HttpHandler {
                 return;
             }
 
-            PlanejamentoSemanal plano = planejamentoService.buscarPorId(planoId);
-            List<ItemListaCompras> itens = listaComprasService.gerarListaCompras(planoId);
+            PlanejamentoSemanal plano = planejamentoService.buscarPorId(planoId, usuarioId);
+            List<ItemListaCompras> itens = listaComprasService.gerarListaCompras(planoId, usuarioId);
 
             Map<String, Object> resposta = new LinkedHashMap<>();
             resposta.put("planejamentoId", planoId);
@@ -114,7 +118,7 @@ public class PlanejamentoController implements HttpHandler {
                 HttpHelper.enviarErro(exchange, 400, "ID do planejamento não identificado na rota.");
                 return;
             }
-            RelatorioDesperdicioDTO relatorio = listaComprasService.calcularEstimativaDesperdicio(planoId);
+            RelatorioDesperdicioDTO relatorio = listaComprasService.calcularEstimativaDesperdicio(planoId, usuarioId);
             HttpHelper.enviarRespostaJson(exchange, 200, relatorio);
             return;
         }
@@ -122,10 +126,10 @@ public class PlanejamentoController implements HttpHandler {
         // Ex: /api/planejamentos/{id} ou /api/planejamentos
         Long id = HttpHelper.extrairIdDoPath(path);
         if (id != null) {
-            PlanejamentoSemanal plano = planejamentoService.buscarPorId(id);
+            PlanejamentoSemanal plano = planejamentoService.buscarPorId(id, usuarioId);
             HttpHelper.enviarRespostaJson(exchange, 200, converterParaDTO(plano));
         } else {
-            List<PlanejamentoSemanal> planos = planejamentoService.listarPlanejamentos();
+            List<PlanejamentoSemanal> planos = planejamentoService.listarPlanejamentos(usuarioId);
             List<PlanejamentoDTO> dtos = new ArrayList<>();
             for (PlanejamentoSemanal p : planos) {
                 dtos.add(converterParaDTO(p));
@@ -134,27 +138,43 @@ public class PlanejamentoController implements HttpHandler {
         }
     }
 
-    private void tratarPost(HttpExchange exchange) throws IOException {
+    private void tratarPost(HttpExchange exchange, Long usuarioId) throws IOException {
         String corpo = HttpHelper.lerCorpoRequisicao(exchange);
         PlanejamentoDTO dto = HttpHelper.getGson().fromJson(corpo, PlanejamentoDTO.class);
 
         PlanejamentoSemanal plano = converterParaEntidade(dto);
-        Long idGerado = planejamentoService.cadastrar(plano);
+        Long idGerado = planejamentoService.cadastrar(plano, usuarioId);
 
         // Gera a lista de compras inicial consolidada automaticamente
-        listaComprasService.gerarListaCompras(idGerado);
+        listaComprasService.gerarListaCompras(idGerado, usuarioId);
 
-        PlanejamentoSemanal criado = planejamentoService.buscarPorId(idGerado);
+        PlanejamentoSemanal criado = planejamentoService.buscarPorId(idGerado, usuarioId);
         HttpHelper.enviarRespostaJson(exchange, 201, converterParaDTO(criado));
     }
 
-    private void tratarDelete(HttpExchange exchange, String path) throws IOException {
+    private void tratarPut(HttpExchange exchange, String path, Long usuarioId) throws IOException {
+        Long id = HttpHelper.extrairIdDoPath(path);
+        if (id == null) {
+            HttpHelper.enviarErro(exchange, 400, "ID do planejamento não informado na rota.");
+            return;
+        }
+        PlanejamentoDTO dto = HttpHelper.getGson().fromJson(
+                HttpHelper.lerCorpoRequisicao(exchange), PlanejamentoDTO.class);
+        PlanejamentoSemanal plano = converterParaEntidade(dto);
+        plano.setId(id);
+        planejamentoService.atualizar(plano, usuarioId);
+        listaComprasService.regerarListaCompras(id, usuarioId);
+        HttpHelper.enviarRespostaJson(exchange, 200,
+                converterParaDTO(planejamentoService.buscarPorId(id, usuarioId)));
+    }
+
+    private void tratarDelete(HttpExchange exchange, String path, Long usuarioId) throws IOException {
         Long id = HttpHelper.extrairIdDoPath(path);
         if (id == null) {
             HttpHelper.enviarErro(exchange, 400, "ID do planejamento não informado para exclusão.");
             return;
         }
-        planejamentoService.excluir(id);
+        planejamentoService.excluir(id, usuarioId);
         Map<String, Object> resp = new HashMap<>();
         resp.put("mensagem", "Planejamento com ID " + id + " excluído com sucesso.");
         HttpHelper.enviarRespostaJson(exchange, 200, resp);
@@ -172,7 +192,6 @@ public class PlanejamentoController implements HttpHandler {
     private PlanejamentoDTO converterParaDTO(PlanejamentoSemanal p) {
         PlanejamentoDTO dto = new PlanejamentoDTO();
         dto.setId(p.getId());
-        dto.setUsuarioId(p.getUsuarioId());
         dto.setTitulo(p.getTitulo());
         dto.setDataInicio(p.getDataInicio());
         dto.setDataFim(p.getDataFim());
@@ -199,7 +218,6 @@ public class PlanejamentoController implements HttpHandler {
     private PlanejamentoSemanal converterParaEntidade(PlanejamentoDTO dto) {
         PlanejamentoSemanal p = new PlanejamentoSemanal();
         p.setId(dto.getId());
-        p.setUsuarioId(dto.getUsuarioId() != null ? dto.getUsuarioId() : 1L);
         p.setTitulo(dto.getTitulo());
         p.setDataInicio(dto.getDataInicio());
         p.setDataFim(dto.getDataFim());

@@ -47,6 +47,12 @@ public class ListaComprasDAO {
             "JOIN T_PE_CATEGORIA c ON i.ID_CATEGORIA = c.ID_CATEGORIA " +
             "WHERE il.ID_ITEM_LISTA = ?";
 
+    private static final String SQL_SELECT_ITEM_BY_ID_OWNER =
+            SQL_SELECT_ITEM_BY_ID.substring(0, SQL_SELECT_ITEM_BY_ID.lastIndexOf("WHERE")) +
+            "JOIN T_PE_LISTA_COMPRAS l ON il.ID_LISTA = l.ID_LISTA " +
+            "JOIN T_PE_PLANEJAMENTO p ON l.ID_PLANEJAMENTO = p.ID_PLANEJAMENTO " +
+            "WHERE il.ID_ITEM_LISTA = ? AND p.ID_USUARIO = ?";
+
     private static final String SQL_INSERT_ITEM_LISTA =
             "INSERT INTO T_PE_ITEM_LISTA (ID_LISTA, ID_INGREDIENTE, VL_QUANTIDADE_TOTAL, DS_UNIDADE_MEDIDA, FL_COMPRADO) " +
             "VALUES (?, ?, ?, ?, ?)";
@@ -54,9 +60,11 @@ public class ListaComprasDAO {
     private static final String SQL_DELETE_ITEMS_BY_LISTA =
             "DELETE FROM T_PE_ITEM_LISTA WHERE ID_LISTA = ?";
 
-    private static final String SQL_UPDATE_STATUS_COMPRADO =
-            "UPDATE T_PE_ITEM_LISTA SET FL_COMPRADO = ? WHERE ID_ITEM_LISTA = ?";
-
+    private static final String SQL_UPDATE_STATUS_COMPRADO_OWNER =
+            "UPDATE T_PE_ITEM_LISTA SET FL_COMPRADO = ? WHERE ID_ITEM_LISTA = ? " +
+            "AND EXISTS (SELECT 1 FROM T_PE_LISTA_COMPRAS l " +
+            "JOIN T_PE_PLANEJAMENTO p ON l.ID_PLANEJAMENTO = p.ID_PLANEJAMENTO " +
+            "WHERE l.ID_LISTA = T_PE_ITEM_LISTA.ID_LISTA AND p.ID_USUARIO = ?)";
     /**
      * Localiza itens da lista de compras já persistida para o planejamento indicado.
      *
@@ -202,14 +210,19 @@ public class ListaComprasDAO {
      * @return Optional com o item encontrado.
      */
     public Optional<ItemListaCompras> buscarItemPorId(Long id) {
+        return buscarItemPorId(id, null);
+    }
+
+    public Optional<ItemListaCompras> buscarItemPorId(Long id, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
 
         try {
             conn = ConnectionFactory.getConnection();
-            stmt = conn.prepareStatement(SQL_SELECT_ITEM_BY_ID);
+            stmt = conn.prepareStatement(usuarioId == null ? SQL_SELECT_ITEM_BY_ID : SQL_SELECT_ITEM_BY_ID_OWNER);
             stmt.setLong(1, id);
+            if (usuarioId != null) stmt.setLong(2, usuarioId);
             rs = stmt.executeQuery();
 
             if (rs.next()) {
@@ -229,15 +242,16 @@ public class ListaComprasDAO {
      * @param itemListaId ID do item.
      * @param comprado Novo status.
      */
-    public void atualizarStatusComprado(Long itemListaId, boolean comprado) {
+    public void atualizarStatusComprado(Long itemListaId, boolean comprado, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmt = null;
 
         try {
             conn = ConnectionFactory.getConnection();
-            stmt = conn.prepareStatement(SQL_UPDATE_STATUS_COMPRADO);
+            stmt = conn.prepareStatement(SQL_UPDATE_STATUS_COMPRADO_OWNER);
             stmt.setString(1, comprado ? "S" : "N");
             stmt.setLong(2, itemListaId);
+            stmt.setLong(3, usuarioId);
 
             int rows = stmt.executeUpdate();
             if (rows == 0) {

@@ -17,6 +17,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 
 /**
  * Serviço responsável pelo processamento inteligente do funil Planeja -> Processa -> Executa:
@@ -50,11 +51,17 @@ public class ListaComprasService {
      * @return Lista de compras com quantidades unificadas e ordenadas.
      */
     public List<ItemListaCompras> gerarListaCompras(Long planejamentoId) {
+        return gerarListaCompras(planejamentoId, null);
+    }
+
+    public List<ItemListaCompras> gerarListaCompras(Long planejamentoId, Long usuarioId) {
         if (planejamentoId == null || planejamentoId <= 0) {
             throw new RegraNegocioException("ID de planejamento inválido: " + planejamentoId);
         }
 
-        PlanejamentoSemanal plano = planejamentoDAO.buscarPorId(planejamentoId)
+        PlanejamentoSemanal plano = (usuarioId == null
+                ? planejamentoDAO.buscarPorId(planejamentoId)
+                : planejamentoDAO.buscarPorId(planejamentoId, usuarioId))
                 .orElseThrow(() -> new EntidadeNaoEncontradaException(PlanejamentoSemanal.class, planejamentoId));
 
         // 1. Tenta recuperar lista já persistida
@@ -68,7 +75,10 @@ public class ListaComprasService {
         if (plano.getRefeicoes() != null) {
             for (ItemPlanejamento ip : plano.getRefeicoes()) {
                 if (ip.getReceita() != null && ip.getReceita().getId() != null) {
-                    receitaDAO.buscarPorId(ip.getReceita().getId()).ifPresent(receitasDoPlano::add);
+                    (usuarioId == null
+                            ? receitaDAO.buscarPorId(ip.getReceita().getId())
+                            : receitaDAO.buscarPorId(ip.getReceita().getId(), usuarioId))
+                            .ifPresent(receitasDoPlano::add);
                 }
             }
         }
@@ -87,6 +97,44 @@ public class ListaComprasService {
         }
 
         return itensCalculados;
+    }
+
+    public List<ItemListaCompras> regerarListaCompras(Long planejamentoId, Long usuarioId) {
+        if (planejamentoId == null || planejamentoId <= 0) {
+            throw new RegraNegocioException("ID de planejamento inválido: " + planejamentoId);
+        }
+        PlanejamentoSemanal plano = planejamentoDAO.buscarPorId(planejamentoId, usuarioId)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException(PlanejamentoSemanal.class, planejamentoId));
+        List<ItemListaCompras> itensAnteriores = listaComprasDAO.buscarItensPorPlanejamento(planejamentoId);
+        Map<String, Boolean> statusAnterior = new LinkedHashMap<>();
+        for (ItemListaCompras item : itensAnteriores) {
+            Long ingredienteId = item.getIngrediente() == null ? null : item.getIngrediente().getId();
+            if (ingredienteId != null) {
+                statusAnterior.put(chaveItem(ingredienteId, item.getUnidadeMedida()),
+                        Boolean.TRUE.equals(item.getComprado()));
+            }
+        }
+
+        List<Receita> receitas = new ArrayList<>();
+        if (plano.getRefeicoes() != null) {
+            for (ItemPlanejamento refeicao : plano.getRefeicoes()) {
+                if (refeicao.getReceita() != null && refeicao.getReceita().getId() != null) {
+                    receitaDAO.buscarPorId(refeicao.getReceita().getId(), usuarioId).ifPresent(receitas::add);
+                }
+            }
+        }
+        List<ItemListaCompras> itens = consolidarIngredientes(receitas);
+        for (ItemListaCompras item : itens) {
+            Long ingredienteId = item.getIngrediente().getId();
+            item.setComprado(statusAnterior.getOrDefault(
+                    chaveItem(ingredienteId, item.getUnidadeMedida()), false));
+        }
+        listaComprasDAO.salvarListaConsolidada(planejamentoId, itens);
+        return listaComprasDAO.buscarItensPorPlanejamento(planejamentoId);
+    }
+
+    private String chaveItem(Long ingredienteId, String unidade) {
+        return ingredienteId + "_" + (unidade == null ? "" : unidade.trim().toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -144,14 +192,14 @@ public class ListaComprasService {
      * @param itemListaId Identificador do item consolidado.
      * @param comprado Novo status booleano.
      */
-    public void atualizarStatusComprado(Long itemListaId, boolean comprado) {
+    public void atualizarStatusComprado(Long itemListaId, boolean comprado, Long usuarioId) {
         if (itemListaId == null || itemListaId <= 0) {
             throw new RegraNegocioException("ID do item da lista inválido: " + itemListaId);
         }
-        listaComprasDAO.buscarItemPorId(itemListaId)
+        listaComprasDAO.buscarItemPorId(itemListaId, usuarioId)
                 .orElseThrow(() -> new EntidadeNaoEncontradaException(ItemListaCompras.class, itemListaId));
 
-        listaComprasDAO.atualizarStatusComprado(itemListaId, comprado);
+        listaComprasDAO.atualizarStatusComprado(itemListaId, comprado, usuarioId);
     }
 
     /**
@@ -160,15 +208,15 @@ public class ListaComprasService {
      * @param itemListaId ID do item.
      * @return Item com o status atualizado.
      */
-    public ItemListaCompras alternarStatus(Long itemListaId) {
+    public ItemListaCompras alternarStatus(Long itemListaId, Long usuarioId) {
         if (itemListaId == null || itemListaId <= 0) {
             throw new RegraNegocioException("ID do item da lista inválido: " + itemListaId);
         }
-        ItemListaCompras item = listaComprasDAO.buscarItemPorId(itemListaId)
+        ItemListaCompras item = listaComprasDAO.buscarItemPorId(itemListaId, usuarioId)
                 .orElseThrow(() -> new EntidadeNaoEncontradaException(ItemListaCompras.class, itemListaId));
 
         boolean novoStatus = !Boolean.TRUE.equals(item.getComprado());
-        listaComprasDAO.atualizarStatusComprado(itemListaId, novoStatus);
+        listaComprasDAO.atualizarStatusComprado(itemListaId, novoStatus, usuarioId);
         item.setComprado(novoStatus);
         return item;
     }
@@ -179,10 +227,12 @@ public class ListaComprasService {
      * @param planejamentoId Identificador do plano semanal.
      * @return DTO com percentuais de aproveitamento e indicadores CitizenTech.
      */
-    public RelatorioDesperdicioDTO calcularEstimativaDesperdicio(Long planejamentoId) {
+    public RelatorioDesperdicioDTO calcularEstimativaDesperdicio(Long planejamentoId, Long usuarioId) {
         if (planejamentoId == null || planejamentoId <= 0) {
             throw new RegraNegocioException("ID de planejamento inválido: " + planejamentoId);
         }
+        planejamentoDAO.buscarPorId(planejamentoId, usuarioId)
+                .orElseThrow(() -> new EntidadeNaoEncontradaException(PlanejamentoSemanal.class, planejamentoId));
         return planejamentoDAO.buscarRelatorioDesperdicio(planejamentoId);
     }
 }

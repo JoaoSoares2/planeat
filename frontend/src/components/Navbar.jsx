@@ -1,18 +1,34 @@
 import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { useToast } from './Toast.jsx';
 
 const links = [
-  { to: '/', label: 'Início', active: ['/', '/dashboard', '/Index.html'] },
+  { to: '/dashboard', label: 'Dashboard', active: ['/', '/dashboard', '/Index.html'] },
   { to: '/serviços.html', label: 'Receitas', active: ['/receitas', '/serviços.html'] },
   { to: '/planejamentos.html', label: 'Planejamento', active: ['/planejamento', '/planejamentos.html'] },
 ];
 
 export default function Navbar() {
+  const { nome, sair } = useAuth();
+  const { notify } = useToast();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  async function handleLogout() {
+    try {
+      await sair();
+    } catch (error) {
+      notify(error.message, 'error');
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  }
+
   return (
     <header className="site-header">
       <div className="header-inner">
-        <Link className="brand" to="/" aria-label="PlanEat, início">
+        <Link className="brand" to="/dashboard" aria-label="PlanEat, dashboard">
           <span className="brand-mark" aria-hidden="true">p</span>
           <span>Plan<span>Eat</span></span>
         </Link>
@@ -41,6 +57,8 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
+          <span className="nav-user" title={nome}>{nome}</span>
+          <button className="nav-logout" type="button" onClick={handleLogout}>Sair</button>
         </nav>
       </div>
     </header>

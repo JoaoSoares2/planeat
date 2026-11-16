@@ -20,6 +20,10 @@ export const criarPlanejamento = (plano) => fetchObject('/planejamentos', {
   method: 'POST',
   body: JSON.stringify(plano),
 });
+export const atualizarPlanejamento = (id, plano) => fetchObject(`/planejamentos/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(plano),
+});
 export const excluirPlanejamento = (id) => fetchJson(`/planejamentos/${id}`, { method: 'DELETE' });
 export const buscarListaCompras = (id) => fetchObject(`/planejamentos/${id}/lista-compras`);
 export const buscarRelatorioDesperdicio = (id) => fetchObject(`/planejamentos/${id}/desperdicio`);

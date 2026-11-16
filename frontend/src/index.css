@@ -55,6 +55,9 @@ img, svg { display: block; max-width: 100%; }
 .nav-link { min-height: 44px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 12px; color: #62706a; text-decoration: none; font-size: 14px; font-weight: 600; transition: background .18s ease, color .18s ease; }
 .nav-link:hover { color: var(--green-dark); background: #f1f8f4; }
 .nav-link.is-active { color: var(--green-dark); background: #eaf7f0; }
+.nav-user { max-width: 180px; overflow: hidden; color: #60736a; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.nav-logout { min-height: 42px; padding: 0 14px; border: 1px solid #dfe9e2; border-radius: 11px; background: white; color: #a0443b; font-size: 13px; font-weight: 700; }
+.nav-logout:hover { border-color: #efc8c1; background: #fff7f5; }
 .menu-toggle { width: 48px; min-width: 48px; height: 48px; min-height: 48px; flex-shrink: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line); border-radius: 12px; background: white; }
 .menu-toggle span { width: 19px; height: 2px; border-radius: 2px; background: var(--green-dark); }
 .site-footer { border-top: 1px solid #e8ebe7; background: white; }

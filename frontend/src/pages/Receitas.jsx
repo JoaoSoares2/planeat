@@ -161,7 +161,6 @@ export default function Receitas() {
     if (Object.values(validationErrors).some(Boolean)) return;
 
     const payload = {
-      usuarioId: 1,
       nome: form.nome.trim(),
       modoPreparo: form.modoPreparo.trim(),
       porcoes: Number(form.porcoes),

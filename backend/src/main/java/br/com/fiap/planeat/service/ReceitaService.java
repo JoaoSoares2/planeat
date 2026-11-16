@@ -54,33 +54,22 @@ public class ReceitaService {
      * @param receita Objeto receita com lista de ingredientes.
      * @return ID gerado pelo banco relacional.
      */
-    public Long cadastrarReceita(Receita receita) {
+    public Long cadastrarReceita(Receita receita, Long usuarioId) {
         if (receita == null) {
             throw new RegraNegocioException("Dados da receita não podem ser nulos.");
         }
-
-        // Validação intrínseca do modelo
-        receita.validarConsistencia();
-
-        // Validação e normalização de ingredientes
-        consolidarIngredientesDuplicados(receita);
-
-        // Validação de existência do usuário
-        if (receita.getUsuarioId() != null && receita.getUsuarioId() > 0) {
-            usuarioDAO.buscarPorId(receita.getUsuarioId()).ifPresentOrElse(
-                    receita::setUsuario,
-                    () -> {
-                        // Se o ID informado não existir, podemos vincular a um autor padrão ou registrar
-                        if (receita.getUsuario() == null) {
-                            receita.setUsuarioId(1L);
-                        }
-                    }
-            );
-        } else {
-            receita.setUsuarioId(1L);
+        if (usuarioId == null || usuarioId <= 0) {
+            throw new RegraNegocioException("Usuário autenticado inválido.");
         }
 
-        // Validação de integridade dos ingredientes no catálogo
+        receita.setUsuarioId(usuarioId);
+        receita.validarConsistencia();
+        consolidarIngredientesDuplicados(receita);
+        usuarioDAO.buscarPorId(usuarioId)
+                .ifPresentOrElse(receita::setUsuario, () -> {
+                    throw new RegraNegocioException("Usuário autenticado não encontrado.");
+                });
+
         for (ItemReceita item : receita.getIngredientes()) {
             if (item.getIngrediente() == null || item.getIngrediente().getId() == null) {
                 throw new RegraNegocioException("Ingrediente sem identificador não pode ser adicionado à receita.");
@@ -101,21 +90,16 @@ public class ReceitaService {
      * @return Receita encontrada.
      * @throws EntidadeNaoEncontradaException se o registro não existir.
      */
-    public Receita buscarPorId(Long id) {
+    public Receita buscarPorId(Long id, Long usuarioId) {
         if (id == null || id <= 0) {
             throw new RegraNegocioException("ID da receita informado é inválido: " + id);
         }
-        return receitaDAO.buscarPorId(id)
+        return receitaDAO.buscarPorId(id, usuarioId)
                 .orElseThrow(() -> new EntidadeNaoEncontradaException(Receita.class, id));
     }
 
-    /**
-     * Lista todas as receitas cadastradas no sistema.
-     *
-     * @return Lista de receitas.
-     */
-    public List<Receita> listarReceitas() {
-        return receitaDAO.listarTodos();
+    public List<Receita> listarReceitas(Long usuarioId) {
+        return receitaDAO.listarPorUsuario(usuarioId);
     }
 
     /**
@@ -124,11 +108,11 @@ public class ReceitaService {
      * @param tipoRefeicao Café da Manhã, Almoço, Jantar, Lanche.
      * @return Lista de receitas correspondentes.
      */
-    public List<Receita> listarPorTipoRefeicao(String tipoRefeicao) {
+    public List<Receita> listarPorTipoRefeicao(Long usuarioId, String tipoRefeicao) {
         if (tipoRefeicao == null || tipoRefeicao.trim().isEmpty()) {
-            return listarReceitas();
+            return listarReceitas(usuarioId);
         }
-        return receitaDAO.listarPorTipoRefeicao(tipoRefeicao.trim());
+        return receitaDAO.listarPorTipoRefeicao(usuarioId, tipoRefeicao.trim());
     }
 
     /**
@@ -136,19 +120,19 @@ public class ReceitaService {
      *
      * @param receita Receita contendo o ID e os novos dados.
      */
-    public void atualizarReceita(Receita receita) {
+    public void atualizarReceita(Receita receita, Long usuarioId) {
         if (receita == null || receita.getId() == null || receita.getId() <= 0) {
             throw new RegraNegocioException("ID da receita é obrigatório para atualização.");
         }
 
         // Valida se a receita existe previamente
-        buscarPorId(receita.getId());
+        buscarPorId(receita.getId(), usuarioId);
 
-        // Validação de negócio
+        receita.setUsuarioId(usuarioId);
         receita.validarConsistencia();
         consolidarIngredientesDuplicados(receita);
 
-        receitaDAO.atualizar(receita);
+        receitaDAO.atualizar(receita, usuarioId);
     }
 
     /**
@@ -156,13 +140,13 @@ public class ReceitaService {
      *
      * @param id Identificador da receita a remover.
      */
-    public void excluirReceita(Long id) {
+    public void excluirReceita(Long id, Long usuarioId) {
         if (id == null || id <= 0) {
             throw new RegraNegocioException("ID inválido para exclusão de receita.");
         }
         // Garante que a receita existe antes de tentar a exclusão
-        buscarPorId(id);
-        receitaDAO.excluir(id);
+        buscarPorId(id, usuarioId);
+        receitaDAO.excluir(id, usuarioId);
     }
 
     /**

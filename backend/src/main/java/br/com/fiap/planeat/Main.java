@@ -2,9 +2,13 @@ package br.com.fiap.planeat;
 
 import br.com.fiap.planeat.controller.IngredienteController;
 import br.com.fiap.planeat.controller.ListaComprasController;
+import br.com.fiap.planeat.controller.AutenticacaoController;
+import br.com.fiap.planeat.controller.HttpHelper;
 import br.com.fiap.planeat.controller.PlanejamentoController;
 import br.com.fiap.planeat.controller.ReceitaController;
 import br.com.fiap.planeat.factory.ConnectionFactory;
+import br.com.fiap.planeat.security.AuthenticatedHandler;
+import br.com.fiap.planeat.security.SessionManager;
 import br.com.fiap.planeat.service.CargaDadosService;
 import com.sun.net.httpserver.HttpServer;
 
@@ -39,11 +43,15 @@ public class Main {
         // 2. Inicialização do Servidor HTTP REST Nativo
         int porta = obterPortaConfigurada();
         try {
-            iniciarServidor(porta);
+            iniciarServidor(porta, SessionManager.fromEnvironment());
             System.out.println("==================================================================");
             System.out.println("🚀 Servidor HTTP REST ativo em: http://localhost:" + porta);
             System.out.println("------------------------------------------------------------------");
             System.out.println("Rotas Disponíveis para Integração Web:");
+            System.out.println("  • POST   /api/auth/cadastro");
+            System.out.println("  • POST   /api/auth/login");
+            System.out.println("  • GET    /api/auth/sessao");
+            System.out.println("  • POST   /api/auth/logout");
             System.out.println("  • GET    /api/receitas");
             System.out.println("  • POST   /api/receitas");
             System.out.println("  • GET    /api/receitas/{id}");
@@ -53,6 +61,7 @@ public class Main {
             System.out.println("  • GET    /api/categorias");
             System.out.println("  • GET    /api/planejamentos");
             System.out.println("  • POST   /api/planejamentos");
+            System.out.println("  • PUT    /api/planejamentos/{id}");
             System.out.println("  • GET    /api/planejamentos/{id}/lista-compras (Query Analítica SQL)");
             System.out.println("  • GET    /api/planejamentos/{id}/desperdicio   (Relatório de Desperdício)");
             System.out.println("  • PATCH  /api/itens-lista/{id}/status          (Checklist Mobile)");
@@ -63,16 +72,19 @@ public class Main {
     }
 
     public static synchronized void iniciarServidor(int porta) throws IOException {
+        iniciarServidor(porta, SessionManager.fromEnvironment());
+    }
+
+    public static synchronized void iniciarServidor(int porta, SessionManager sessions) throws IOException {
         if (servidor != null) {
             return;
         }
 
         servidor = HttpServer.create(new InetSocketAddress(porta), 0);
 
-        // Rota de Healthcheck / Status
         servidor.createContext("/api/status", exchange -> {
+            if (HttpHelper.aplicarCorsEVerificarOptions(exchange)) return;
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
             String json = "{\"sistema\": \"PlanEat API\", \"status\": \"OPERACIONAL\", \"versao\": \"1.0.0\"}";
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, bytes.length);
@@ -81,12 +93,12 @@ public class Main {
             }
         });
 
-        // Controladores REST Principais
-        servidor.createContext("/api/receitas", new ReceitaController());
-        servidor.createContext("/api/ingredientes", new IngredienteController());
-        servidor.createContext("/api/categorias", new IngredienteController());
-        servidor.createContext("/api/planejamentos", new PlanejamentoController());
-        servidor.createContext("/api/itens-lista", new ListaComprasController());
+        servidor.createContext("/api/auth", new AutenticacaoController(sessions));
+        servidor.createContext("/api/receitas", new AuthenticatedHandler(new ReceitaController(), sessions));
+        servidor.createContext("/api/ingredientes", new AuthenticatedHandler(new IngredienteController(), sessions));
+        servidor.createContext("/api/categorias", new AuthenticatedHandler(new IngredienteController(), sessions));
+        servidor.createContext("/api/planejamentos", new AuthenticatedHandler(new PlanejamentoController(), sessions));
+        servidor.createContext("/api/itens-lista", new AuthenticatedHandler(new ListaComprasController(), sessions));
 
         // Executor multi-thread para requisições concorrentes
         servidor.setExecutor(Executors.newFixedThreadPool(10));

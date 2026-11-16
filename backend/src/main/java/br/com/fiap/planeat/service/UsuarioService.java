@@ -4,6 +4,7 @@ import br.com.fiap.planeat.dao.UsuarioDAO;
 import br.com.fiap.planeat.exception.EntidadeNaoEncontradaException;
 import br.com.fiap.planeat.exception.RegraNegocioException;
 import br.com.fiap.planeat.model.Usuario;
+import br.com.fiap.planeat.security.PasswordHasher;
 
 import java.util.List;
 
@@ -27,6 +28,8 @@ public class UsuarioService {
             throw new RegraNegocioException("Dados do usuário não podem ser nulos.");
         }
         usuario.validarConsistencia();
+        validarPoliticaSenha(usuario.getSenha());
+        usuario.setSenha(PasswordHasher.hash(usuario.getSenha()));
 
         if (usuarioDAO.buscarPorEmail(usuario.getEmail()).isPresent()) {
             throw new RegraNegocioException("Já existe um usuário cadastrado com o e-mail: " + usuario.getEmail());
@@ -56,12 +59,7 @@ public class UsuarioService {
     }
 
     public boolean autenticar(String email, String senha) {
-        if (email == null || senha == null) {
-            return false;
-        }
-        return usuarioDAO.buscarPorEmail(email.trim())
-                .map(u -> u.validarAcesso(senha))
-                .orElse(false);
+        return new AutenticacaoService(usuarioDAO).autenticar(email, senha).isPresent();
     }
 
     public void atualizar(Usuario usuario) {
@@ -70,11 +68,21 @@ public class UsuarioService {
         }
         buscarPorId(usuario.getId());
         usuario.validarConsistencia();
+        if (!usuario.getSenha().startsWith("pbkdf2-sha256$")) {
+            validarPoliticaSenha(usuario.getSenha());
+            usuario.setSenha(PasswordHasher.hash(usuario.getSenha()));
+        }
         usuarioDAO.atualizar(usuario);
     }
 
     public void excluir(Long id) {
         buscarPorId(id);
         usuarioDAO.excluir(id);
+    }
+
+    private void validarPoliticaSenha(String senha) {
+        if (senha == null || senha.length() < 8) {
+            throw new RegraNegocioException("A senha deve ter pelo menos 8 caracteres.");
+        }
     }
 }

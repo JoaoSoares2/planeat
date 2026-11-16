@@ -43,6 +43,9 @@ public class PlanejamentoDAO {
             "LEFT JOIN T_PE_USUARIO u ON p.ID_USUARIO = u.ID_USUARIO " +
             "WHERE p.ID_PLANEJAMENTO = ?";
 
+    private static final String SQL_SELECT_BY_ID_OWNER =
+            SQL_SELECT_BY_ID + " AND p.ID_USUARIO = ?";
+
     private static final String SQL_SELECT_ITEMS_BY_PLANEJAMENTO =
             "SELECT ip.ID_ITEM_PLANEJAMENTO, ip.ID_PLANEJAMENTO, ip.DS_DIA_SEMANA, ip.DS_REFEICAO, " +
             "       r.ID_RECEITA, r.NM_RECEITA, r.DS_MODO_PREPARO, r.NR_PORCOES, r.NR_TEMPO_MINUTOS, r.DS_TIPO_REFEICAO " +
@@ -58,16 +61,22 @@ public class PlanejamentoDAO {
             "LEFT JOIN T_PE_USUARIO u ON p.ID_USUARIO = u.ID_USUARIO " +
             "ORDER BY p.DT_INICIO DESC";
 
+    private static final String SQL_SELECT_BY_OWNER =
+            SQL_SELECT_ALL.replace("ORDER BY", "WHERE p.ID_USUARIO = ? ORDER BY");
+
     private static final String SQL_UPDATE_PLANEJAMENTO =
-            "UPDATE T_PE_PLANEJAMENTO SET ID_USUARIO = ?, NM_TITULO = ?, DT_INICIO = ?, DT_FIM = ?, DS_STATUS = ? " +
-            "WHERE ID_PLANEJAMENTO = ?";
+            "UPDATE T_PE_PLANEJAMENTO SET NM_TITULO = ?, DT_INICIO = ?, DT_FIM = ?, DS_STATUS = ? " +
+            "WHERE ID_PLANEJAMENTO = ? AND ID_USUARIO = ?";
 
     private static final String SQL_DELETE_ITEMS =
             "DELETE FROM T_PE_ITEM_PLANEJAMENTO WHERE ID_PLANEJAMENTO = ?";
 
-    private static final String SQL_DELETE_PLANEJAMENTO =
-            "DELETE FROM T_PE_PLANEJAMENTO WHERE ID_PLANEJAMENTO = ?";
+    private static final String SQL_DELETE_PLANEJAMENTO_BY_OWNER =
+            "DELETE FROM T_PE_PLANEJAMENTO WHERE ID_PLANEJAMENTO = ? AND ID_USUARIO = ?";
 
+    private static final String SQL_DELETE_ITEMS_BY_OWNER =
+            "DELETE FROM T_PE_ITEM_PLANEJAMENTO WHERE ID_PLANEJAMENTO IN " +
+            "(SELECT ID_PLANEJAMENTO FROM T_PE_PLANEJAMENTO WHERE ID_PLANEJAMENTO = ? AND ID_USUARIO = ?)";
     // Query Analítica SQL com JOIN, SUM, GROUP BY e ORDER BY
     private static final String SQL_QUERY_ANALITICA_CONSOLIDACAO =
             "SELECT " +
@@ -146,7 +155,10 @@ public class PlanejamentoDAO {
             }
 
             Long usuarioId = plano.getUsuarioId() != null ? plano.getUsuarioId() :
-                    (plano.getUsuario() != null ? plano.getUsuario().getId() : 1L);
+                    (plano.getUsuario() != null ? plano.getUsuario().getId() : null);
+            if (usuarioId == null) {
+                throw new DatabasePersistenceException("Planejamento deve estar associado a um usuário.");
+            }
 
             stmtPlano.setLong(1, usuarioId);
             stmtPlano.setString(2, plano.getTitulo());
@@ -209,6 +221,10 @@ public class PlanejamentoDAO {
      * @return Optional contendo o planejamento montado.
      */
     public Optional<PlanejamentoSemanal> buscarPorId(Long id) {
+        return buscarPorId(id, null);
+    }
+
+    public Optional<PlanejamentoSemanal> buscarPorId(Long id, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmtPlano = null;
         PreparedStatement stmtItens = null;
@@ -217,8 +233,9 @@ public class PlanejamentoDAO {
 
         try {
             conn = ConnectionFactory.getConnection();
-            stmtPlano = conn.prepareStatement(SQL_SELECT_BY_ID);
+            stmtPlano = conn.prepareStatement(usuarioId == null ? SQL_SELECT_BY_ID : SQL_SELECT_BY_ID_OWNER);
             stmtPlano.setLong(1, id);
+            if (usuarioId != null) stmtPlano.setLong(2, usuarioId);
             rsPlano = stmtPlano.executeQuery();
 
             if (!rsPlano.next()) {
@@ -251,6 +268,14 @@ public class PlanejamentoDAO {
      * @return Lista de planos semanais.
      */
     public List<PlanejamentoSemanal> listarTodos() {
+        return listarPlanejamentos(null);
+    }
+
+    public List<PlanejamentoSemanal> listarPorUsuario(Long usuarioId) {
+        return listarPlanejamentos(usuarioId);
+    }
+
+    private List<PlanejamentoSemanal> listarPlanejamentos(Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -258,7 +283,8 @@ public class PlanejamentoDAO {
 
         try {
             conn = ConnectionFactory.getConnection();
-            stmt = conn.prepareStatement(SQL_SELECT_ALL);
+            stmt = conn.prepareStatement(usuarioId == null ? SQL_SELECT_ALL : SQL_SELECT_BY_OWNER);
+            if (usuarioId != null) stmt.setLong(1, usuarioId);
             rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -280,7 +306,7 @@ public class PlanejamentoDAO {
     /**
      * Atualiza dados e refeições alocadas no planejamento semanal.
      */
-    public void atualizar(PlanejamentoSemanal plano) {
+    public void atualizar(PlanejamentoSemanal plano, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmtPlano = null;
         PreparedStatement stmtDelete = null;
@@ -293,15 +319,12 @@ public class PlanejamentoDAO {
             conn.setAutoCommit(false);
 
             stmtPlano = conn.prepareStatement(SQL_UPDATE_PLANEJAMENTO);
-            Long usuarioId = plano.getUsuarioId() != null ? plano.getUsuarioId() :
-                    (plano.getUsuario() != null ? plano.getUsuario().getId() : 1L);
-
-            stmtPlano.setLong(1, usuarioId);
-            stmtPlano.setString(2, plano.getTitulo());
-            stmtPlano.setDate(3, Date.valueOf(plano.getDataInicio()));
-            stmtPlano.setDate(4, Date.valueOf(plano.getDataFim()));
-            stmtPlano.setString(5, plano.getStatus());
-            stmtPlano.setLong(6, plano.getId());
+            stmtPlano.setString(1, plano.getTitulo());
+            stmtPlano.setDate(2, Date.valueOf(plano.getDataInicio()));
+            stmtPlano.setDate(3, Date.valueOf(plano.getDataFim()));
+            stmtPlano.setString(4, plano.getStatus());
+            stmtPlano.setLong(5, plano.getId());
+            stmtPlano.setLong(6, usuarioId);
 
             int rows = stmtPlano.executeUpdate();
             if (rows == 0) {
@@ -353,7 +376,7 @@ public class PlanejamentoDAO {
      *
      * @param id ID do planejamento.
      */
-    public void excluir(Long id) {
+    public void excluir(Long id, Long usuarioId) {
         Connection conn = null;
         PreparedStatement stmtDeleteItems = null;
         PreparedStatement stmtDeletePlano = null;
@@ -364,13 +387,17 @@ public class PlanejamentoDAO {
             autoCommitOriginal = conn.getAutoCommit();
             conn.setAutoCommit(false);
 
-            stmtDeleteItems = conn.prepareStatement(SQL_DELETE_ITEMS);
+            stmtDeleteItems = conn.prepareStatement(SQL_DELETE_ITEMS_BY_OWNER);
             stmtDeleteItems.setLong(1, id);
+            stmtDeleteItems.setLong(2, usuarioId);
             stmtDeleteItems.executeUpdate();
 
-            stmtDeletePlano = conn.prepareStatement(SQL_DELETE_PLANEJAMENTO);
+            stmtDeletePlano = conn.prepareStatement(SQL_DELETE_PLANEJAMENTO_BY_OWNER);
             stmtDeletePlano.setLong(1, id);
-            stmtDeletePlano.executeUpdate();
+            stmtDeletePlano.setLong(2, usuarioId);
+            if (stmtDeletePlano.executeUpdate() == 0) {
+                throw new DatabasePersistenceException("Planejamento não encontrado para o usuário autenticado.");
+            }
 
             conn.commit();
         } catch (SQLException e) {

@@ -14,7 +14,9 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 /**
  * Utilitário centralizado para manipulação de requisições e respostas HTTP no servidor nativo Java.
@@ -39,9 +41,14 @@ public class HttpHelper {
      * @return true se a requisição era OPTIONS e já foi finalizada; false para prosseguir com o handler.
      */
     public static boolean aplicarCorsEVerificarOptions(HttpExchange exchange) throws IOException {
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        if (origemPermitida(origin)) {
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
+            exchange.getResponseHeaders().set("Access-Control-Allow-Credentials", "true");
+            exchange.getResponseHeaders().set("Vary", "Origin");
+        }
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
 
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
             exchange.sendResponseHeaders(204, -1);
@@ -49,6 +56,32 @@ public class HttpHelper {
             return true;
         }
         return false;
+    }
+
+    public static boolean requisicaoDeNavegadorPermitida(HttpExchange exchange) {
+        String method = exchange.getRequestMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method) ||
+                "OPTIONS".equalsIgnoreCase(method)) return true;
+        if (!"XMLHttpRequest".equals(exchange.getRequestHeaders().getFirst("X-Requested-With"))) {
+            return false;
+        }
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        return origin == null || origemPermitida(origin);
+    }
+
+    private static boolean origemPermitida(String origin) {
+        return origin != null && allowedOrigins().contains(origin);
+    }
+
+    private static List<String> allowedOrigins() {
+        String configured = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (configured == null || configured.isBlank()) {
+            return List.of("http://localhost:5173", "http://127.0.0.1:5173");
+        }
+        return Arrays.stream(configured.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty() && !"*".equals(origin))
+                .toList();
     }
 
     /**
@@ -71,6 +104,7 @@ public class HttpHelper {
      */
     public static void enviarRespostaJson(HttpExchange exchange, int statusCode, Object dados) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
         String json = GSON.toJson(dados);
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(statusCode, bytes.length);

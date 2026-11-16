@@ -1,0 +1,6 @@
+.cadastro-card { width: min(100%, 500px); padding-top: 32px; }
+.cadastro-card .auth-brand { margin-bottom: 23px; }
+.cadastro-card .auth-heading { margin-bottom: 21px; }
+.cadastro-card .auth-form { gap: 14px; }
+.show-password-option { display: inline-flex; align-items: center; gap: 8px; color: #6d7d74; font-size: 12px; }
+.show-password-option input { accent-color: #10b981; }

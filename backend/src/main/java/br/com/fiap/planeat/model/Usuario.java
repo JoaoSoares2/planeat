@@ -1,6 +1,7 @@
 package br.com.fiap.planeat.model;
 
 import br.com.fiap.planeat.exception.RegraNegocioException;
+import br.com.fiap.planeat.security.PasswordHasher;
 
 import java.time.LocalDate;
 
@@ -65,7 +66,7 @@ public class Usuario extends EntidadeBase {
      * Valida se a senha informada corresponde à senha do usuário.
      */
     public boolean validarAcesso(String senhaInformada) {
-        return this.senha != null && this.senha.equals(senhaInformada);
+        return PasswordHasher.matches(senhaInformada, this.senha);
     }
 
     /**
