@@ -1,5 +1,9 @@
 package br.com.fiap.planeat.model;
 
+import br.com.fiap.planeat.exception.RegraNegocioException;
+
+import java.util.Objects;
+
 /**
  * Representa a dose de um ingrediente associado a uma receita (Tabela associativa N:N).
  */
@@ -42,6 +46,45 @@ public class ItemReceita {
     }
 
     public String formatarExibicao() {
-        return String.format("%.2f %s de %s", quantidade, unidadeMedida, ingrediente != null ? ingrediente.getNome() : "");
+        String nomeIngrediente = ingrediente != null ? ingrediente.getNome() : "";
+        if (quantidade == null) {
+            return nomeIngrediente;
+        }
+        return String.format("%.2f %s de %s", quantidade, unidadeMedida != null ? unidadeMedida : "", nomeIngrediente).trim();
+    }
+
+    public void validarConsistencia() {
+        if (ingrediente == null) {
+            throw new RegraNegocioException("O ingrediente é obrigatório no item da receita.");
+        }
+        if (quantidade == null || quantidade <= 0) {
+            throw new RegraNegocioException("A quantidade do ingrediente deve ser maior que zero.");
+        }
+        if (unidadeMedida == null || unidadeMedida.trim().isEmpty()) {
+            throw new RegraNegocioException("A unidade de medida do ingrediente é obrigatória.");
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ItemReceita that = (ItemReceita) o;
+        return Objects.equals(ingrediente, that.ingrediente) &&
+                Objects.equals(unidadeMedida, that.unidadeMedida);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(ingrediente, unidadeMedida);
+    }
+
+    @Override
+    public String toString() {
+        return "ItemReceita{" +
+                "ingrediente=" + (ingrediente != null ? ingrediente.getNome() : null) +
+                ", quantidade=" + quantidade +
+                ", unidadeMedida='" + unidadeMedida + '\'' +
+                '}';
     }
 }
