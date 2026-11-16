@@ -1,26 +1,41 @@
-// src/services/api.js
-// Configuração base da API e stubs de requisição para implementação pelo time.
+import { demoRequest } from './demoApi.js';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = (configuredBaseUrl || '/api').replace(/\/+$/, '');
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
-/**
- * TODO: O time deve implementar a comunicação com os endpoints do back-end Java.
- */
+export async function fetchJson(endpoint, options = {}) {
+  if (isDemoMode) return demoRequest(endpoint, options);
 
-export async function buscarReceitas() {
-  // TODO: Implementar chamada GET /api/receitas
-  console.log('buscarReceitas() - A ser implementado pelo time');
-  return [];
-}
+  const headers = new Headers(options.headers || {});
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
-export async function cadastrarReceita(receita) {
-  // TODO: Implementar chamada POST /api/receitas
-  console.log('cadastrarReceita() - A ser implementado pelo time', receita);
-  return null;
-}
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    throw new Error(`Não foi possível conectar à API. Verifique se o back-end está ativo. (${error.message})`);
+  }
 
-export async function buscarListaCompras(planejamentoId) {
-  // TODO: Implementar chamada GET /api/planejamentos/{id}/lista-compras
-  console.log('buscarListaCompras() - A ser implementado pelo time', planejamentoId);
-  return [];
+  if (response.status === 204) return null;
+
+  const responseText = await response.text();
+  let data = null;
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      if (response.ok) throw new Error('A API retornou uma resposta que não é um JSON válido.');
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.erro || data?.mensagem || `Falha na requisição (${response.status}).`);
+  }
+  return data;
 }

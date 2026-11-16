@@ -1,32 +1,45 @@
-import React from 'react';
+import { useState } from 'react';
+import { Link, NavLink } from 'react-router-dom';
 
-export default function Navbar({ activeTab, setActiveTab }) {
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'receitas', label: 'Receitas' },
-    { id: 'planejamento', label: 'Planejamento' },
-  ];
+const links = [
+  { to: '/', label: 'Início', active: ['/', '/dashboard', '/Index.html'] },
+  { to: '/serviços.html', label: 'Receitas', active: ['/receitas', '/serviços.html'] },
+  { to: '/planejamentos.html', label: 'Planejamento', active: ['/planejamento', '/planejamentos.html'] },
+];
 
+export default function Navbar() {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <header class="bg-white border-b border-slate-200">
-      <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div class="font-bold text-lg text-emerald-600 flex items-center gap-2">
-          <span>🌿 PlanEat</span>
-        </div>
-
-        <nav class="flex items-center gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              class={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-emerald-50 text-emerald-700 font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
+    <header className="site-header">
+      <div className="header-inner">
+        <Link className="brand" to="/" aria-label="PlanEat, início">
+          <span className="brand-mark" aria-hidden="true">p</span>
+          <span>Plan<span>Eat</span></span>
+        </Link>
+        <button
+          className="menu-toggle"
+          type="button"
+          aria-expanded={menuOpen}
+          aria-controls="primary-navigation"
+          aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span /><span /><span />
+        </button>
+        <nav id="primary-navigation" className={`main-nav ${menuOpen ? 'is-open' : ''}`} aria-label="Navegação principal">
+          {links.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.to === '/'}
+              className={({ isActive }) => {
+                const active = isActive || link.active.includes(window.location.pathname);
+                return `nav-link${active ? ' is-active' : ''}`;
+              }}
+              onClick={() => setMenuOpen(false)}
             >
-              {tab.label}
-            </button>
+              {link.label}
+            </NavLink>
           ))}
         </nav>
       </div>
