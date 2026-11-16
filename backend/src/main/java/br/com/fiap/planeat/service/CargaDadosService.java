@@ -2,22 +2,25 @@ package br.com.fiap.planeat.service;
 
 import br.com.fiap.planeat.dao.CategoriaDAO;
 import br.com.fiap.planeat.dao.IngredienteDAO;
+import br.com.fiap.planeat.dao.PlanejamentoDAO;
 import br.com.fiap.planeat.dao.ReceitaDAO;
 import br.com.fiap.planeat.dao.UsuarioDAO;
 import br.com.fiap.planeat.model.CategoriaAlimento;
 import br.com.fiap.planeat.model.Ingrediente;
+import br.com.fiap.planeat.model.ItemPlanejamento;
 import br.com.fiap.planeat.model.ItemReceita;
+import br.com.fiap.planeat.model.PlanejamentoSemanal;
 import br.com.fiap.planeat.model.Receita;
 import br.com.fiap.planeat.model.Usuario;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Serviço responsável pela carga inicial de dados (Seed) para teste, homologação
- * e inicialização do sistema conforme especificado na Sprint 2.
+ * Serviço responsável pela carga inicial de dados (Seed) para homologação e execução do MVP.
  */
 public class CargaDadosService {
 
@@ -27,31 +30,39 @@ public class CargaDadosService {
     private final IngredienteDAO ingredienteDAO;
     private final UsuarioDAO usuarioDAO;
     private final ReceitaDAO receitaDAO;
+    private final PlanejamentoDAO planejamentoDAO;
+    private final ListaComprasService listaComprasService;
 
     public CargaDadosService() {
         this.categoriaDAO = new CategoriaDAO();
         this.ingredienteDAO = new IngredienteDAO();
         this.usuarioDAO = new UsuarioDAO();
         this.receitaDAO = new ReceitaDAO();
+        this.planejamentoDAO = new PlanejamentoDAO();
+        this.listaComprasService = new ListaComprasService();
     }
 
-    public CargaDadosService(CategoriaDAO categoriaDAO, IngredienteDAO ingredienteDAO, UsuarioDAO usuarioDAO, ReceitaDAO receitaDAO) {
+    public CargaDadosService(CategoriaDAO categoriaDAO, IngredienteDAO ingredienteDAO, UsuarioDAO usuarioDAO,
+                             ReceitaDAO receitaDAO, PlanejamentoDAO planejamentoDAO, ListaComprasService listaComprasService) {
         this.categoriaDAO = categoriaDAO;
         this.ingredienteDAO = ingredienteDAO;
         this.usuarioDAO = usuarioDAO;
         this.receitaDAO = receitaDAO;
+        this.planejamentoDAO = planejamentoDAO;
+        this.listaComprasService = listaComprasService;
     }
 
     /**
      * Executa a carga inicial completa no banco se as tabelas estiverem vazias.
      */
     public void executarCargaInicial() {
-        LOGGER.info("Iniciando verificação de carga de dados inicial (Sprint 2)...");
+        LOGGER.info("Iniciando verificação de carga de dados inicial (PlanEat)...");
 
         Map<String, CategoriaAlimento> categorias = popularCategoriasSeNecessario();
         Map<String, Ingrediente> ingredientes = popularIngredientesSeNecessario(categorias);
         Usuario usuario = popularUsuarioSeNecessario();
-        popularReceitasSeNecessario(usuario, ingredientes);
+        List<Receita> receitas = popularReceitasSeNecessario(usuario, ingredientes);
+        popularPlanejamentoSeNecessario(usuario, receitas);
 
         LOGGER.info("Carga de dados inicial verificada com sucesso.");
     }
@@ -131,12 +142,11 @@ public class CargaDadosService {
         return usuarios.get(0);
     }
 
-    private void popularReceitasSeNecessario(Usuario usuario, Map<String, Ingrediente> ingredientes) {
+    private List<Receita> popularReceitasSeNecessario(Usuario usuario, Map<String, Ingrediente> ingredientes) {
         List<Receita> receitas = receitaDAO.listarTodos();
         if (receitas.isEmpty() && usuario != null) {
             LOGGER.info("Tabela T_PE_RECEITA vazia. Inserindo receitas demonstrativas com N:N...");
 
-            // Receita 1: Frango Grelhado com Legumes
             Receita r1 = new Receita(
                     "Frango Grelhado com Tomate e Cebola",
                     "Tempere o frango com azeite. Grelhe e refogue os tomates e cebolas fatiadas.",
@@ -163,7 +173,6 @@ public class CargaDadosService {
                 receitaDAO.inserir(r1);
             }
 
-            // Receita 2: Omelete (compartilha Cebola e Tomate para demonstrar aproveitamento)
             Receita r2 = new Receita(
                     "Omelete Nutritiva de Tomate",
                     "Bata os ovos, pique o tomate e a cebola. Cozinhe em frigideira antiaderente.",
@@ -186,6 +195,37 @@ public class CargaDadosService {
             if (!r2.getIngredientes().isEmpty()) {
                 receitaDAO.inserir(r2);
             }
+
+            return receitaDAO.listarTodos();
+        }
+        return receitas;
+    }
+
+    private void popularPlanejamentoSeNecessario(Usuario usuario, List<Receita> receitas) {
+        List<PlanejamentoSemanal> planos = planejamentoDAO.listarTodos();
+        if (planos.isEmpty() && usuario != null && !receitas.isEmpty()) {
+            LOGGER.info("Tabela T_PE_PLANEJAMENTO vazia. Inserindo planejamento demonstrativo...");
+
+            LocalDate hoje = LocalDate.now();
+            PlanejamentoSemanal plano = new PlanejamentoSemanal(
+                    "Cardápio Semanal Consciente - Semana 1",
+                    hoje,
+                    hoje.plusDays(6)
+            );
+            plano.setUsuarioId(usuario.getId());
+
+            Receita r1 = receitas.get(0);
+            Receita r2 = receitas.size() > 1 ? receitas.get(1) : r1;
+
+            plano.adicionarRefeicao(new ItemPlanejamento(r1, "Segunda-feira", "Almoço"));
+            plano.adicionarRefeicao(new ItemPlanejamento(r2, "Segunda-feira", "Jantar"));
+            plano.adicionarRefeicao(new ItemPlanejamento(r1, "Quarta-feira", "Almoço"));
+
+            Long idPlano = planejamentoDAO.inserir(plano);
+            plano.setId(idPlano);
+
+            // Pré-gera a lista de compras consolidada
+            listaComprasService.gerarListaCompras(idPlano);
         }
     }
 }
