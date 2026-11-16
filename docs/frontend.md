@@ -178,3 +178,26 @@ npm run dev
 
 # A aplicação estará disponível em http://localhost:5173
 ```
+
+---
+
+## 7. Implementação do front-end e contrato utilizado
+
+O front-end React/Vite também publica as entradas HTML `index.html` (início), `serviços.html` (receitas) e `planejamentos.html` (planejamento). Todas montam a mesma aplicação React; as rotas equivalentes `/`, `/dashboard`, `/receitas` e `/planejamento` permanecem disponíveis. O Vite usa `/api` como base padrão e encaminha essas chamadas para `http://localhost:8080`; em outro ambiente, configure `VITE_API_BASE_URL`, por exemplo `https://servidor/api`.
+
+No desenvolvimento, `frontend/.env.development` ativa um simulador local das rotas e dados para testar navegação, cadastro, planejamento e checklist sem o servidor Java. A faixa “Modo demonstração” identifica claramente os dados de exemplo; alterações duram apenas até recarregar a aplicação e não são enviadas à API. Para testar a integração real, defina `VITE_DEMO_MODE=false` e inicie o back-end.
+
+Serviços utilizados:
+
+| Tela | Método e rota |
+| :--- | :--- |
+| Dashboard | `GET /api/receitas`, `GET /api/planejamentos` e `GET /api/planejamentos/{id}/desperdicio` |
+| Receitas e catálogo | `GET/POST /api/receitas`, `GET/PUT/DELETE /api/receitas/{id}`, `GET /api/ingredientes` |
+| Planejamento | `GET/POST /api/planejamentos`, `GET /api/planejamentos/{id}`, `GET /api/planejamentos/{id}/lista-compras` |
+| Checklist | `PATCH /api/itens-lista/{id}/status` |
+
+O PATCH recebe `{"comprado": true}` ou `{"comprado": false}`. Embora a coluna do banco use `S/N`, o controller Java desserializa um booleano JSON. A tela faz atualização otimista e reverte o checkbox se a chamada falhar. A lista consolidada e os indicadores de aproveitamento vêm do back-end; o navegador não calcula quantidades nem valores de economia.
+
+### Dependência conhecida do back-end
+
+O `PlanejamentoService` implementa uma atualização, mas o `PlanejamentoController` não expõe `PUT /api/planejamentos/{id}`. Por isso, a interface carrega planejamentos existentes, mas salvar alterações cria explicitamente um novo planejamento via POST; não simula uma edição persistida. Para editar o mesmo registro, o back-end precisa publicar e documentar o endpoint PUT (incluindo a sincronização das refeições e a lista de compras).

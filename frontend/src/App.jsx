@@ -1,24 +1,45 @@
-import React, { useState } from 'react';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import Dashboard from './pages/Dashboard';
-import Receitas from './pages/Receitas';
-import Planejamento from './pages/Planejamento';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import Footer from './components/Footer.jsx';
+import Navbar from './components/Navbar.jsx';
+import { ToastProvider } from './components/Toast.jsx';
+import { isDemoMode } from './services/api.js';
+import Dashboard from './pages/Dashboard.jsx';
+import Planejamento from './pages/Planejamento.jsx';
+import Receitas from './pages/Receitas.jsx';
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-
+function AppLayout() {
   return (
-    <div class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      
-      <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6">
-        {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'receitas' && <Receitas />}
-        {activeTab === 'planejamento' && <Planejamento />}
+    <div className="app-shell">
+      <Navbar />
+      {isDemoMode && (
+        <aside className="demo-banner" role="status">
+          <strong>Modo demonstração</strong>
+          <span>Dados de exemplo; alterações ficam apenas nesta sessão e não são enviadas à API.</span>
+        </aside>
+      )}
+      <main className="main-content">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/Index.html" element={<Dashboard />} />
+          <Route path="/receitas" element={<Receitas />} />
+          <Route path="/serviços.html" element={<Receitas />} />
+          <Route path="/planejamento" element={<Planejamento />} />
+          <Route path="/planejamentos.html" element={<Planejamento />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
-
       <Footer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ToastProvider>
+        <AppLayout />
+      </ToastProvider>
+    </BrowserRouter>
   );
 }
